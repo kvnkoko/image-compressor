@@ -1,0 +1,5 @@
+Place a real Windows icon here named `icon.ico` (256x256 multi-resolution)
+before running `npm run dist`.
+
+Without icon.ico, electron-builder falls back to the default Electron icon
+and the build still succeeds. Delete this placeholder once icon.ico is added.
