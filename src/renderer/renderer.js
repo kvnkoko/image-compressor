@@ -8,6 +8,65 @@ let presets = [];
 let processing = false;
 
 // ---------------------------------------------------------------------------
+// In-app modal dialog
+//
+// Electron's renderer does NOT support window.prompt() (it returns null and
+// logs a warning) — that is why saving presets silently failed. These helpers
+// drive the custom #modalOverlay markup instead and return Promises.
+// ---------------------------------------------------------------------------
+
+function showDialog({ title, message, withInput, defaultValue, okLabel }) {
+  return new Promise((resolve) => {
+    const overlay = $('modalOverlay');
+    const input = $('modalInput');
+    const msg = $('modalMessage');
+
+    $('modalTitle').textContent = title;
+    $('modalOk').textContent = okLabel || 'OK';
+
+    if (withInput) {
+      input.hidden = false;
+      input.value = defaultValue || '';
+      msg.hidden = !message;
+      if (message) msg.textContent = message;
+    } else {
+      input.hidden = true;
+      msg.hidden = false;
+      msg.textContent = message || '';
+    }
+
+    overlay.hidden = false;
+    if (withInput) { input.focus(); input.select(); }
+
+    const cleanup = () => {
+      overlay.hidden = true;
+      $('modalOk').removeEventListener('click', onOk);
+      $('modalCancel').removeEventListener('click', onCancel);
+      input.removeEventListener('keydown', onKey);
+      overlay.removeEventListener('mousedown', onBackdrop);
+    };
+    const onOk = () => { const v = withInput ? input.value : true; cleanup(); resolve(v); };
+    const onCancel = () => { cleanup(); resolve(withInput ? null : false); };
+    const onKey = (e) => {
+      if (e.key === 'Enter') onOk();
+      else if (e.key === 'Escape') onCancel();
+    };
+    const onBackdrop = (e) => { if (e.target === overlay) onCancel(); };
+
+    $('modalOk').addEventListener('click', onOk);
+    $('modalCancel').addEventListener('click', onCancel);
+    input.addEventListener('keydown', onKey);
+    overlay.addEventListener('mousedown', onBackdrop);
+  });
+}
+
+const showPrompt = (title, placeholder, defaultValue) =>
+  showDialog({ title, withInput: true, defaultValue, okLabel: 'Save' });
+
+const showConfirm = (title, message) =>
+  showDialog({ title, message, withInput: false, okLabel: 'Delete' });
+
+// ---------------------------------------------------------------------------
 // Settings <-> UI
 // ---------------------------------------------------------------------------
 
@@ -128,20 +187,27 @@ $('presetSelect').addEventListener('change', (e) => {
 });
 
 $('savePresetBtn').addEventListener('click', async () => {
-  const name = prompt('Preset name:');
-  if (!name) return;
+  // Suggest the current preset's name if one is selected, so "Save as…" can
+  // overwrite it easily.
+  const selIdx = $('presetSelect').value;
+  const suggested = selIdx !== '' ? presets[Number(selIdx)].name : '';
+  const name = await showPrompt('Save preset', 'Preset name', suggested);
+  if (!name || !name.trim()) return;
+  const clean = name.trim();
   const settings = readUI();
-  const existing = presets.findIndex((p) => p.name === name);
-  if (existing >= 0) presets[existing] = { name, settings };
-  else presets.push({ name, settings });
+  const existing = presets.findIndex((p) => p.name === clean);
+  if (existing >= 0) presets[existing] = { name: clean, settings };
+  else presets.push({ name: clean, settings });
   await window.api.savePresets(presets);
-  renderPresetOptions(name);
+  renderPresetOptions(clean);
 });
 
 $('deletePresetBtn').addEventListener('click', async () => {
   const idx = $('presetSelect').value;
   if (idx === '') return;
-  if (!confirm(`Delete preset "${presets[Number(idx)].name}"?`)) return;
+  const target = presets[Number(idx)];
+  const ok = await showConfirm('Delete preset', `Delete preset "${target.name}"? This cannot be undone.`);
+  if (!ok) return;
   presets.splice(Number(idx), 1);
   await window.api.savePresets(presets);
   renderPresetOptions();

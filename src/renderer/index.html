@@ -196,6 +196,19 @@
     </main>
   </div>
 
+  <!-- In-app dialog (replaces unsupported window.prompt/confirm in Electron) -->
+  <div id="modalOverlay" class="modal-overlay" hidden>
+    <div class="modal">
+      <div id="modalTitle" class="modal-title">Save preset</div>
+      <div id="modalMessage" class="modal-message" hidden></div>
+      <input type="text" id="modalInput" class="text-input" placeholder="Preset name" />
+      <div class="modal-actions">
+        <button id="modalCancel" class="btn ghost">Cancel</button>
+        <button id="modalOk" class="btn primary">Save</button>
+      </div>
+    </div>
+  </div>
+
   <script src="renderer.js"></script>
 </body>
 </html>
