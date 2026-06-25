@@ -52,9 +52,10 @@
           <label class="field">
             <span>Resize mode</span>
             <select id="resizeMode" class="select">
-              <option value="aspect">Maintain Aspect Ratio</option>
-              <option value="fit">Fit Within Dimensions</option>
-              <option value="exact">Exact Dimensions</option>
+              <option value="aspect">Maintain Aspect Ratio (can enlarge)</option>
+              <option value="fit">Fit Within (no upscale)</option>
+              <option value="cover">Crop to Fill (no distortion)</option>
+              <option value="exact">Stretch to Exact (may distort)</option>
             </select>
           </label>
         </div>

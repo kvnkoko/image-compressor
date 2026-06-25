@@ -6,7 +6,8 @@
  * Core image processing engine.
  *
  * Responsibilities:
- *   - Resize (Exact / Fit / Maintain aspect ratio)
+ *   - Resize (Maintain aspect / Fit-no-upscale / Crop to fill / Stretch),
+ *     with upscaling supported so images can be enlarged past their original
  *   - Format conversion (JPG / PNG / WEBP)
  *   - Hit a precise output file size using a binary search over encoder quality
  *
@@ -37,38 +38,49 @@ function applyResize(pipeline, meta, settings) {
   const height = parseInt(settings.resize.height, 10) || null;
   if (!width && !height) return pipeline;
 
-  const mode = settings.resize.mode || 'fit';
+  const mode = settings.resize.mode || 'aspect';
 
-  if (mode === 'exact') {
-    // Stretch to exact dimensions (may distort).
-    return pipeline.resize({
-      width,
-      height,
-      fit: 'fill',
-      withoutEnlargement: false,
-    });
+  switch (mode) {
+    case 'exact':
+      // Stretch to exact dimensions (may distort). Enlarges if the source is
+      // smaller than the target. Use this to force any aspect ratio.
+      return pipeline.resize({ width, height, fit: 'fill' });
+
+    case 'cover':
+      // Crop to fill the exact dimensions, centered. No distortion: the image
+      // is scaled to cover the box and the overflowing edges are trimmed.
+      // Enlarges if needed. This is how a square becomes a non-square aspect
+      // ratio (e.g. 4000x4000 -> 1920x1080) without squishing.
+      return pipeline.resize({
+        width,
+        height,
+        fit: 'cover',
+        position: 'centre',
+      });
+
+    case 'fit':
+      // Fit within the box, preserving aspect ratio, NEVER upscaling. The
+      // "safe" option for staff who only want to shrink, never grow.
+      return pipeline.resize({
+        width,
+        height,
+        fit: 'inside',
+        withoutEnlargement: true,
+      });
+
+    case 'aspect':
+    default:
+      // Maintain aspect ratio, scaling up OR down so the image fills the box
+      // as closely as possible. Enlarges when the source is smaller than the
+      // target. 4000x4000 -> 3000x3000, 6000x4000 -> 3000x2000, and a small
+      // 1000x1000 -> 3000x3000 (now upscales).
+      return pipeline.resize({
+        width,
+        height,
+        fit: 'inside',
+        withoutEnlargement: false,
+      });
   }
-
-  if (mode === 'aspect') {
-    // Maintain aspect ratio. Treat width/height as a bounding box but scale by
-    // the limiting dimension so the result keeps proportions. 4000x4000 ->
-    // 3000x3000, 6000x4000 -> 3000x2000 (matches the spec examples).
-    return pipeline.resize({
-      width,
-      height,
-      fit: 'inside',
-      withoutEnlargement: true,
-    });
-  }
-
-  // mode === 'fit' (default): Fit within the box, preserving aspect ratio,
-  // never upscaling.
-  return pipeline.resize({
-    width,
-    height,
-    fit: 'inside',
-    withoutEnlargement: true,
-  });
 }
 
 /**
