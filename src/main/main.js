@@ -135,7 +135,7 @@ function collectImages(paths) {
 // Output path resolution
 // ---------------------------------------------------------------------------
 
-function resolveOutputPath(inputPath, settings, outputDir) {
+function resolveOutputPath(inputPath, settings, outputDir, index = 0, total = 1) {
   const dir = path.dirname(inputPath);
   const base = path.basename(inputPath, path.extname(inputPath));
   const fmt = (settings.outputFormat || 'jpg').toLowerCase();
@@ -143,6 +143,7 @@ function resolveOutputPath(inputPath, settings, outputDir) {
 
   let name = base;
   const naming = settings.naming || { mode: 'suffix', suffix: '_compressed' };
+
   if (naming.mode === 'suffix') {
     let suffix = naming.suffix || '_compressed';
     // Support a {size} token, e.g. cover_500kb.jpg
@@ -150,6 +151,18 @@ function resolveOutputPath(inputPath, settings, outputDir) {
       suffix = suffix.replace('{size}', `${settings.size.value}kb`);
     }
     name = base + suffix;
+  } else if (naming.mode === 'rename') {
+    // Replace the filename entirely with the user's text. When more than one
+    // file is processed we append a zero-padded counter so outputs never
+    // overwrite each other (e.g. artwork_001, artwork_002, ...).
+    const custom = (naming.rename || 'image').trim() || 'image';
+    if (total > 1) {
+      const pad = String(total).length;
+      const counter = String(index + 1).padStart(pad, '0');
+      name = `${custom}_${counter}`;
+    } else {
+      name = custom;
+    }
   }
 
   let targetDir = dir;
@@ -282,8 +295,8 @@ ipcMain.handle('process', async (event, { files, settings, outputDir }) => {
     if (!event.sender.isDestroyed()) event.sender.send(channel, payload);
   };
 
-  const tasks = files.map((inputPath) => {
-    const outputPath = resolveOutputPath(inputPath, settings, outputDir);
+  const tasks = files.map((inputPath, index) => {
+    const outputPath = resolveOutputPath(inputPath, settings, outputDir, index, total);
     return pool
       .run({ inputPath, outputPath, settings })
       .then((msg) => {

@@ -96,6 +96,7 @@ function readUI() {
     naming: {
       mode: document.querySelector('input[name="naming"]:checked').value,
       suffix: $('namingSuffix').value || '_compressed',
+      rename: $('namingRename').value || 'image',
     },
   };
 }
@@ -136,8 +137,29 @@ function applyUI(s) {
     const r = document.querySelector(`input[name="naming"][value="${s.naming.mode}"]`);
     if (r) r.checked = true;
     if (s.naming.suffix) $('namingSuffix').value = s.naming.suffix;
+    if (s.naming.rename) $('namingRename').value = s.naming.rename;
   }
   syncEnabledStates();
+}
+
+// Show only the input relevant to the selected naming mode, plus a live hint
+// of what an output file will be called.
+function syncNamingMode() {
+  const mode = document.querySelector('input[name="naming"]:checked').value;
+  $('namingSuffix').hidden = mode !== 'suffix';
+  $('namingRename').hidden = mode !== 'rename';
+  const hint = $('namingHint');
+  if (mode === 'rename') {
+    const base = ($('namingRename').value || 'image').trim() || 'image';
+    const fmt = $('outputFormat').value;
+    const n = files.length;
+    hint.hidden = false;
+    hint.textContent = n > 1
+      ? `e.g. ${base}_001.${fmt}, ${base}_002.${fmt} … (auto-numbered)`
+      : `Output: ${base}.${fmt}`;
+  } else {
+    hint.hidden = true;
+  }
 }
 
 function setSizeMode(mode) {
@@ -276,6 +298,7 @@ function updateFileCount() {
   $('processBtn').disabled = n === 0 || processing;
   $('statusText').textContent = n ? `${n} image${n === 1 ? '' : 's'} queued` : 'Ready';
   dz.classList.toggle('has-files', n > 0);
+  if (typeof syncNamingMode === 'function') syncNamingMode();
 }
 
 $('clearBtn').addEventListener('click', () => {
@@ -416,6 +439,13 @@ document.querySelectorAll('#sizeMode .seg-btn').forEach((b) =>
 $('resizeEnabled').addEventListener('change', () => { syncEnabledStates(); persist(); });
 $('sizeEnabled').addEventListener('change', () => { syncEnabledStates(); persist(); });
 
+// Naming mode: swap the visible input + live hint.
+document.querySelectorAll('input[name="naming"]').forEach((r) =>
+  r.addEventListener('change', () => { syncNamingMode(); persist(); })
+);
+$('namingRename').addEventListener('input', syncNamingMode);
+$('outputFormat').addEventListener('change', syncNamingMode);
+
 // Persist on any input change (debounced) and mark preset as custom.
 let persistTimer = null;
 function persist() {
@@ -437,5 +467,6 @@ document.querySelectorAll('input, select').forEach((el) => {
   if (saved) applyUI(saved);
   else applyUI(presets[0] && presets[0].settings);
   syncEnabledStates();
+  syncNamingMode();
   updateFileCount();
 })();

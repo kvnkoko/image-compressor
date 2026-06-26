@@ -138,9 +138,13 @@
         <div class="radio-group" id="namingMode">
           <label class="radio"><input type="radio" name="naming" value="original" /> Keep Original Name</label>
           <label class="radio"><input type="radio" name="naming" value="suffix" checked /> Add Suffix</label>
+          <label class="radio"><input type="radio" name="naming" value="rename" /> Rename to Custom Text</label>
         </div>
         <input type="text" id="namingSuffix" class="text-input" value="_compressed"
                placeholder="_compressed or _{size}" />
+        <input type="text" id="namingRename" class="text-input" value="artwork"
+               placeholder="New file name" hidden />
+        <div id="namingHint" class="naming-hint" hidden></div>
       </div>
     </aside>
 
